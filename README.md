@@ -1,5 +1,5 @@
 # Node_Proxy
 
-proxy_in.js, proxies external requests to your server
+proxy_in.js : Proxies/forwards external requests to your server
 
-proxy_out.js, proxies requests from your server to external hosts
+proxy_out.js : Proxies/forwards requests from your server to external hosts
