@@ -1,5 +1,5 @@
 # Node_Proxy
-The proxy is divided in to two separate apps, one for inbound and the other one for outbound traffic.
+The http/https proxy is divided in to two separate apps, one for inbound and the other one for outbound traffic.
 
 proxy_in.js : Forwards external requests to your server
 
