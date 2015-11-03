@@ -25,9 +25,11 @@ function proxy_out(request, response) {
     'use strict';
     var
         target_host_options = {},
+        request_options_json_obj = {},
         target_url_obj,
         target_host_obj,
-        target_host_request;
+        target_host_request.
+        temp_key;
 
     if (request.headers.passphrase !== passphrase) {
         response.writeHead(400, {'Content-Type': 'text/plain'});
@@ -41,6 +43,25 @@ function proxy_out(request, response) {
         response.write('"target_url" missing in request headers');
         response.end();
         return;
+    }
+
+    if (request.headers.hasOwnProperty('RequestOptionsJson')) {
+        try {
+            request_options_json_obj = JSON.parse(request.headers.RequestOptionsJson);
+    	    for (var temp_key in request_options_json_obj) {
+    		    target_host_options[temp_key] = request_options_json_obj[temp_key];
+    	    }
+
+    	    delete request.headers.RequestOptionsJson;
+
+        } catch (err) {
+	        response.writeHead(400, {'Content-Type': 'text/plain'});
+	        response.write('"RequestOptionsJson" parse error');
+	        response.write('err.message: ' + err.message);
+	        response.write('RequestOptionsJson: ' + request.headers.RequestOptionsJson);
+	        response.end();
+	        return;
+		}
     }
 
     target_url_obj = url.parse(request.headers.target_url);
