@@ -6,7 +6,6 @@ var  //Change those variables to your preference
 
 var
     fs = require('fs'),
-    url = require('url'),
     http = require('http'),
     https = require('https');
 
@@ -25,10 +24,10 @@ function proxy_out(request, response) {
     'use strict';
     var
         target_host_options = {},
-        request_options_json_obj = {},
-        target_url_obj,
         target_host_obj,
-        target_host_request;
+        target_host_request,
+        request_dict,
+        body = '';
 
     if (request.headers.passphrase !== passphrase) {
         response.writeHead(400, {'Content-Type': 'text/plain'});
@@ -37,84 +36,48 @@ function proxy_out(request, response) {
         return;
     }
 
-    if (!request.headers.target_url) {
-        response.writeHead(400, {'Content-Type': 'text/plain'});
-        response.write('"target_url" missing in request headers');
-        response.end();
-        return;
-    }
+    request.on('data', function (chunk) {
+        body += chunk;
+    });
 
-    if (request.headers.hasOwnProperty('RequestOptionsJson')) {
-        try {
-            request_options_json_obj = JSON.parse(request.headers.RequestOptionsJson);
-            request_options_json_obj.forEach(function (key, value) {
-                target_host_options[key] = value;
-            });
-            delete request.headers.RequestOptionsJson;
+    request.on('end', function () {
+        request_dict = JSON.parse(body);
+        target_host_options = request_dict.options;
 
-        } catch (err) {
+        if (target_host_options.hasOwnProperty('pfx')) {
+            target_host_options.pfx = new Buffer(target_host_options.pfx, 'base64');
+        }
+
+        if (target_host_options.protocol === 'https:') {
+            target_host_obj = https;
+        } else if (target_host_options.protocol === 'http:') {
+            target_host_obj = http;
+        } else {
             response.writeHead(400, {'Content-Type': 'text/plain'});
-            response.write('"RequestOptionsJson" parse error');
-            response.write('err.message: ' + err.message);
-            response.write('RequestOptionsJson: ' + request.headers.RequestOptionsJson);
+            response.write('Unknown protocol: ' + JSON.stringify(target_host_options.protocol));
             response.end();
             return;
         }
-    }
 
-    target_url_obj = url.parse(request.headers.target_url);
+        target_host_request = target_host_obj.request(target_host_options, function (target_host_response) {
+            target_host_response.resume();
 
-    if (target_url_obj.protocol === 'https:') {
-        target_host_options.port = target_url_obj.port || '443';
-        target_host_obj = https;
-    } else if (target_url_obj.protocol === 'http:') {
-        target_host_options.port = target_url_obj.port || '80';
-        target_host_obj = http;
-    } else {
-        response.writeHead(400, {'Content-Type': 'text/plain'});
-        response.write('Unknown protocol: ' + JSON.stringify(target_url_obj.protocol));
-        response.end();
-        return;
-    }
+            response.writeHead(target_host_response.statusCode, target_host_response.headers);
+            target_host_response.pipe(response);
+        });
 
-    if (!target_url_obj.hostname) {
-        response.writeHead(400, {'Content-Type': 'text/plain'});
-        response.write('Unknown host');
-        response.end();
-        return;
-    }
+        target_host_request.on('error', function (err) {
+            response.writeHead(400, {'Content-Type': 'text/plain'});
+            response.write('PROXY target_host_request error\n');
+            response.write(JSON.stringify(err));
+            response.write('target_host_options\n');
+            response.write(JSON.stringify(target_host_options));
+            response.end();
+        });
 
-    target_host_options.hostname = target_url_obj.hostname;
-    target_host_options.path = target_url_obj.path || '/';
-
-    if (target_url_obj.auth) {
-        target_host_options.path = target_url_obj.auth;
-    }
-
-    target_host_options.agent = false;  //Disable socket pooling
-    target_host_options.method = request.method;
-    target_host_options.headers = request.headers;
-    delete target_host_options.headers.target_url;
-    delete target_host_options.headers.passphrase;
-    delete target_host_options.headers.host;
-
-
-    target_host_request = target_host_obj.request(target_host_options, function (target_host_response) {
-        target_host_response.resume();
-
-        response.writeHead(target_host_response.statusCode, target_host_response.headers);
-        target_host_response.pipe(response);
+        target_host_request.write(request_dict.payload);
+        target_host_request.end();
     });
-
-    target_host_request.on('error', function (err) {
-        response.writeHead(400, {'Content-Type': 'text/plain'});
-        response.write('PROXY target_host_request error\n');
-        response.write(JSON.stringify(err));
-        response.end();
-    });
-
-
-    request.pipe(target_host_request);
 }
 
 https.createServer(https_options, proxy_out).listen(https_port);
