@@ -68,7 +68,6 @@ function proxy_out(request, response) {
 	        });
         }
         catch(err) {
-            document.getElementById("demo").innerHTML = err.message;
             response.writeHead(400, {'Content-Type': 'text/plain'});
             response.write(err.message);
             response.end();
