@@ -59,12 +59,21 @@ function proxy_out(request, response) {
             return;
         }
 
-        target_host_request = target_host_obj.request(target_host_options, function (target_host_response) {
-            target_host_response.resume();
-
-            response.writeHead(target_host_response.statusCode, target_host_response.headers);
-            target_host_response.pipe(response);
-        });
+        try {
+	        target_host_request = target_host_obj.request(target_host_options, function (target_host_response) {
+	            target_host_response.resume();
+	
+	            response.writeHead(target_host_response.statusCode, target_host_response.headers);
+	            target_host_response.pipe(response);
+	        });
+        }
+        catch(err) {
+            document.getElementById("demo").innerHTML = err.message;
+            response.writeHead(400, {'Content-Type': 'text/plain'});
+            response.write(err.message);
+            response.end();
+            return;
+        }
 
         target_host_request.on('error', function (err) {
             response.writeHead(400, {'Content-Type': 'text/plain'});
