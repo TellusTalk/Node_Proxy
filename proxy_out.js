@@ -60,31 +60,34 @@ function proxy_out(request, response) {
         }
 
         try {
-	        target_host_request = target_host_obj.request(target_host_options, function (target_host_response) {
-	            target_host_response.resume();
-	
-	            response.writeHead(target_host_response.statusCode, target_host_response.headers);
-	            target_host_response.pipe(response);
-	        });
-        }
-        catch(err) {
+            target_host_request = target_host_obj.request(target_host_options, function (target_host_response) {
+                target_host_response.resume();
+
+                response.writeHead(target_host_response.statusCode, target_host_response.headers);
+                target_host_response.pipe(response);
+            });
+
+            target_host_request.on('error', function (err) {
+                response.writeHead(400, {'Content-Type': 'text/plain'});
+                response.write('PROXY target_host_request error\n');
+                response.write(JSON.stringify(err));
+                response.write('target_host_options\n');
+                response.write(JSON.stringify(target_host_options));
+                response.end();
+            });
+
+            target_host_request.write(request_dict.payload);
+            target_host_request.end();
+
+        } catch (err) {
             response.writeHead(400, {'Content-Type': 'text/plain'});
             response.write(err.message);
+            response.write('\n----------------------------\n');
+            response.write(err.stack);
             response.end();
             return;
         }
 
-        target_host_request.on('error', function (err) {
-            response.writeHead(400, {'Content-Type': 'text/plain'});
-            response.write('PROXY target_host_request error\n');
-            response.write(JSON.stringify(err));
-            response.write('target_host_options\n');
-            response.write(JSON.stringify(target_host_options));
-            response.end();
-        });
-
-        target_host_request.write(request_dict.payload);
-        target_host_request.end();
     });
 }
 
