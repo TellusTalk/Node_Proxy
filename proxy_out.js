@@ -76,7 +76,9 @@ function proxy_out(request, response) {
                 response.end();
             });
 
-            target_host_request.write(request_dict.payload);
+            if (request_dict.hasOwnProperty('payload')) {
+                target_host_request.write(request_dict.payload);
+            }
             target_host_request.end();
 
         } catch (err) {
